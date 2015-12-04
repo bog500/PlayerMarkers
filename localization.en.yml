@@ -1,0 +1,5 @@
+# Strings YAML
+no_permission: 'You are not permitted to do this!'
+wrong_parameters: 'Wrong number of parameters'
+wrong_config: 'setting {name} does not exist!'
+config_changed: 'Value changed!'

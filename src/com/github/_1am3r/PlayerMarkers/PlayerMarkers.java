@@ -10,6 +10,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,8 +18,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -34,6 +38,8 @@ import org.json.simple.JSONObject;
 public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 	private static final String MappingSectionName = "Mapping";
 
+	protected static ConfigAccessor language;
+	
 	private int mUpdateTaskId = 0;
 	private JSONDataWriter mDataWriter = null;
 	private PluginDescriptionFile mPdfFile;
@@ -48,12 +54,16 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 		mSaveOfflinePlayers = getConfig().getBoolean("saveOfflinePlayers");
 		mHideVanishedPlayers = getConfig().getBoolean("hideVanishedPlayers");
 
+		new JUtility(this);
+		
 		// Initialize the mapping bukkit to overviewer map names
 		initMapNameMapping();
 
 		// Save the config
 		getConfig().options().copyDefaults(true);
 		saveConfig();
+		
+		loadLanguage();
 
 		if (mSaveOfflinePlayers) {
 			initializeOfflinePlayersMap();
@@ -77,14 +87,115 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 		// Done initializing, tell the world
 		Logger.getLogger(mPdfFile.getName()).log(Level.INFO, mPdfFile.getName() + " version " + mPdfFile.getVersion() + " enabled");
 	}
+	
+	private void loadLanguage() {
+		// Load the strings/localization
+        String langFile = ("localization.{lang}.yml").replace("{lang}", getConfig().getString("lang"));
+        language = new ConfigAccessor(this, langFile);
+	}
+
+	private boolean onSetConfigCommand(CommandSender sender, String[] args) {
+	
+		if (sender instanceof Player) {
+			Player player = (Player) sender;
+			if (!player.hasPermission("justafk.setafk")) {
+				JUtility.sendMessage(sender, ChatColor.RED + this.language.
+	                    getConfig().getString("no_permission"));
+				return true;
+			}
+		}
+		
+		if(args.length == 2) {
+			switch(args[0].toLowerCase())
+			{
+			case "lang":
+				getConfig().set("lang", args[1]);
+				loadLanguage();
+				break;
+				
+			case "updateinterval":
+				getConfig().set("updateInterval", Integer.parseInt(args[1]));
+				break;
+				
+			case "targetfile":
+				getConfig().set("targetFile", args[1]);
+				break;
+				
+			case "saveofflineplayers":
+				getConfig().set("saveOfflinePlayers", Boolean.parseBoolean(args[1]));
+				break;
+				
+			case "hidevanishedplayers":
+				getConfig().set("hideVanishedPlayers", Boolean.parseBoolean(args[1]));
+				break;
+				
+			case "offlinefile":
+				getConfig().set("offlineFile", args[1]);
+				break;
+				
+			case "tagmessages":
+				getConfig().set("tagmessages", Boolean.parseBoolean(args[1]));
+				break;
+			default:
+				JUtility.sendMessage(sender, ChatColor.RED + this.language.
+	                    getConfig().getString("wrong_config").replace("{name}", args[0]));
+				
+				return true;
+			}
+			
+		}else {
+			JUtility.sendMessage(sender, ChatColor.RED + this.language.
+                    getConfig().getString("wrong_parameters"));
+			return false;
+		}
+		
+		saveConfig();
+		
+		JUtility.sendMessage(sender, ChatColor.DARK_GREEN + this.language.
+                getConfig().getString("config_changed").replace("{name}", args[0]));
+		
+		return true;
+	
+	}
+	
+	/**
+     * Handle Commands
+     */
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+  
+        if (command.getName().equalsIgnoreCase("playermarkers") && args.length != 0) {
+            return onSetConfigCommand(sender, args);
+        } else if (command.getName().equalsIgnoreCase("playermarkers")) {
+        	JUtility.sendMessage(sender, ChatColor.AQUA + this.getDescription().getName() + " " + ChatColor.GRAY + this.getDescription().getDescription());
+        	JUtility.sendMessage(sender, ChatColor.GRAY + "Authors: " + ChatColor.AQUA + this.getDescription().getAuthors().toString().replace("[", "").replace("]", ""));
+        	JUtility.sendMessage(sender, ChatColor.GRAY + "Website: " + ChatColor.AQUA + this.getDescription().getWebsite());
+
+            return true;
+        }
+
+
+        return false;
+    }
 
 	public void onDisable() {
 		// Disable updates
 		getServer().getScheduler().cancelTask(mUpdateTaskId);
 
-		if (mSaveOfflinePlayers) {
-			// Save the offline players map
-			saveOfflinePlayersMap();
+		try
+		{
+			if (mSaveOfflinePlayers) {
+				// Save the offline players map
+				saveOfflinePlayersMap();
+			}
+			
+			//Last update
+			this.run();
+			
+		}catch(Exception ex)
+		{
+			// This last update can cause errors.  
+			// Ignore and continue.
 		}
 		
 		Logger.getLogger(mPdfFile.getName()).log(Level.INFO, mPdfFile.getName() + " disabled");
@@ -192,8 +303,14 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 		JSONObject out;
 
 		// Write Online players
-		Player[] players = getServer().getOnlinePlayers();
+		Collection<? extends Player> players = getServer().getOnlinePlayers();
 		for (Player p : players) {
+			
+			// Skip players without playermarkers.show permission
+			if (!p.hasPermission("playermarkers.show")) {
+				continue;
+			}
+				
 			out = new JSONObject();
 			out.put("msg", p.getName());
 			out.put("id", 4);

@@ -1,7 +1,18 @@
 name: PlayerMarkers
-version: 0.2.0
-decsription: Generates Markers on an Overviewer generated map
-author: 1am3r
+version: 0.3.0
+description: Generates Markers on an Overviewer generated map
+author: 1am3r, bog500
 website: http://1am3r.github.com/PlayerMarkers/
 dev-url: http://dev.bukkit.org/server-mods/mapmarkers/
 main: com.github._1am3r.PlayerMarkers.PlayerMarkers
+commands:
+    playermarkers:
+        usage: /playermarkers [config] [value]
+        description: Change configuration
+permissions:
+    playermarkers.show:
+        description: Players will be exported
+        default: true
+    playermarkers.admin:
+        description: Change config
+        default: false
