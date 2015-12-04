@@ -35,10 +35,15 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
+import com.github._1am3r.PlayerMarkers.Updater.UpdateResult;
+import com.github._1am3r.PlayerMarkers.Updater.UpdateType;
+
 public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 	private static final String MappingSectionName = "Mapping";
 
 	protected static ConfigAccessor language;
+	
+	private final int CURSE_PROJECT_ID = 37377;
 	
 	private int mUpdateTaskId = 0;
 	private JSONDataWriter mDataWriter = null;
@@ -55,6 +60,10 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 		mHideVanishedPlayers = getConfig().getBoolean("hideVanishedPlayers");
 
 		new JUtility(this);
+		
+		callMetric();
+
+		checkUpdates();
 		
 		// Initialize the mapping bukkit to overviewer map names
 		initMapNameMapping();
@@ -86,6 +95,32 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 
 		// Done initializing, tell the world
 		Logger.getLogger(mPdfFile.getName()).log(Level.INFO, mPdfFile.getName() + " version " + mPdfFile.getVersion() + " enabled");
+	}
+	
+	private void callMetric() {
+
+		try {
+			MetricsLite metrics = new MetricsLite(this);
+			metrics.start();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+
+	}
+	
+	private void checkUpdates() {
+		try {
+			Updater updater = new Updater(this, CURSE_PROJECT_ID, this.getFile(), UpdateType.NO_DOWNLOAD, true);
+			if(updater.getResult() == UpdateResult.UPDATE_AVAILABLE) {
+				this.getLogger().info("New version available! " + updater.getLatestName());
+				this.getLogger().info("Download it from: " + updater.getLatestFileLink());
+			}else {
+				this.getLogger().info("ItemCollector is up to date (" + this.getDescription().getVersion() + ")");
+			}
+		}catch(Exception ex) {
+			this.getLogger().warning("An error occured while checking updates.  " + ex.getMessage());
+		}
+		
 	}
 	
 	private void loadLanguage() {
