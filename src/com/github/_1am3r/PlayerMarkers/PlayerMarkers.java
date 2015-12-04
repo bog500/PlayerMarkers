@@ -86,7 +86,7 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 			// Save the offline players map
 			saveOfflinePlayersMap();
 		}
-		sa
+		
 		Logger.getLogger(mPdfFile.getName()).log(Level.INFO, mPdfFile.getName() + " disabled");
 	}
 
