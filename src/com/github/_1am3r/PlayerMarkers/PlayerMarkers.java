@@ -374,9 +374,7 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 				continue;
 			}
 			
-			boolean sendDataVanished = true;
-			boolean sendDataSneaking = true;
-			boolean sendDataInvisible = true;
+			boolean sendData = true;
 				
 			out = new JSONObject();
 			out.put("msg", p.getName());
@@ -387,48 +385,51 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 			out.put("z", p.getLocation().getBlockZ());
 
 			// Handles sneaking player
-			if (mHideSneakingPlayers) {
+			if(mSendJSONOnSneakingPlayers || mHideSneakingPlayers)
+			{
 				boolean isSneaking = p.isSneaking();
-
 				if (isSneaking) {
 					if (mSendJSONOnSneakingPlayers) {
-						out.put("id", Status.SNEAKING);
+						out.put("id", Status.SNEAKING); // will replace normal player ID
 					}
-
-					sendDataSneaking = false;
+					if (mHideSneakingPlayers) {
+						sendData = false;
+					}
 				}
 			}
 
 			// Handles invisible potion effect on player
-			if (mHideInvisiblePlayers) {
+			if(mSendJSONOnInvisiblePlayers || mHideInvisiblePlayers)
+			{
 				boolean isInvisible = p.hasPotionEffect(PotionEffectType.INVISIBILITY);
-
 				if (isInvisible) {
 					if (mSendJSONOnInvisiblePlayers) {
-						out.put("id", Status.INVISIBLE); // will replace sneaking player ID
+						out.put("id", Status.INVISIBLE); // will replace normal/sneaking player ID
 					}
-
-					sendDataInvisible = false;
+					if (mHideInvisiblePlayers) {
+						sendData = false;
+					}
 				}
 			}
 
 			// Handles vanished player
-			if (mHideVanishedPlayers) {
+			if(mSendJSONOnVanishedPlayers || mHideVanishedPlayers)
+			{
 				List<MetadataValue> list = p.getMetadata("vanished");
 				for (MetadataValue value : list) {
 					if (value.asBoolean()) {
 						if (mSendJSONOnVanishedPlayers) {
-							out.put("id", Status.VANISHED); // will replace invisible player ID
+							out.put("id", Status.VANISHED); // will replace normal/invisible/sneaking player ID
 						}
-
-						sendDataVanished = false;
-
+						if (mHideVanishedPlayers) {
+							sendData = false;
+						}
 						break;
 					}
 				}
 			}
 
-			if (sendDataSneaking || sendDataInvisible || sendDataVanished) {
+			if (sendData) {
 				jsonList.add(out);
 			}
 		}

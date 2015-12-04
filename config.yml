@@ -6,9 +6,13 @@ targetFile: /path/to/overviewermap/markers.json
 saveOfflinePlayers: true
 offlineFile: locations.bin
 tagmessages: true
+
+#Don't send those status
 hideVanishedPlayers: true
 hideSneakingPlayers: false
 hideInvisiblePlayers: true
+
+#Send custom ID for those status
 sendJSONOnVanishedPlayers: false
 sendJSONOnSneakingPlayers: false
 sendJSONOnInvisiblePlayers: false
