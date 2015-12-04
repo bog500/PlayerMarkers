@@ -167,6 +167,7 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 				
 			case "targetfile":
 				getConfig().set("targetFile", args[1]);
+				mDataWriter.setTargetPath(getConfig().getString("targetFile"));
 				break;
 				
 			case "saveofflineplayers":
@@ -462,11 +463,15 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 	}
 
 	private class JSONDataWriter implements Runnable {
-		private final String targetPath;
+		private String targetPath;
 		private JSONArray jsonData;
 
-		public JSONDataWriter(String path) {
-			targetPath = path;
+		public JSONDataWriter(String targetPath) {
+			this.targetPath = targetPath;
+		}
+		
+		public void setTargetPath(String targetPath) {
+			this.targetPath = targetPath;
 		}
 
 		public void setData(JSONArray data) {
