@@ -32,6 +32,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffectType;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
@@ -44,7 +45,7 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 	protected static ConfigAccessor language;
 	
 	private final int CURSE_PROJECT_ID = 37377;
-	
+	private boolean disabled = true;
 	private int mUpdateTaskId = 0;
 	private JSONDataWriter mDataWriter = null;
 	private PluginDescriptionFile mPdfFile;
@@ -53,17 +54,29 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 	private ConcurrentHashMap<String, SimpleLocation> mOfflineLocations = new ConcurrentHashMap<String, SimpleLocation>();
 	private boolean mSaveOfflinePlayers = true;
 	private boolean mHideVanishedPlayers = true;
+	private boolean mHideSneakingPlayers = true;
+	private boolean mHideInvisiblePlayers = true;
+	private boolean mSendJSONOnVanishedPlayers = false;
+	private boolean mSendJSONOnSneakingPlayers = false;
+	private boolean mSendJSONOnInvisiblePlayers = false;
 
 	public void onEnable() {
 		mPdfFile = this.getDescription();
 		mSaveOfflinePlayers = getConfig().getBoolean("saveOfflinePlayers");
 		mHideVanishedPlayers = getConfig().getBoolean("hideVanishedPlayers");
-
+		mHideSneakingPlayers = getConfig().getBoolean("hideSneakingPlayers");
+		mHideInvisiblePlayers = getConfig().getBoolean("hideInvisiblePlayers");
+		mSendJSONOnVanishedPlayers = getConfig().getBoolean("sendJSONOnVanishedPlayers");
+		mSendJSONOnSneakingPlayers = getConfig().getBoolean("sendJSONOnSneakingPlayers");
+		mSendJSONOnInvisiblePlayers = getConfig().getBoolean("sendJSONOnInvisiblePlayers");
+		
 		new JUtility(this);
 		
 		callMetric();
 
 		checkUpdates();
+		
+		this.disabled = false;
 		
 		// Initialize the mapping bukkit to overviewer map names
 		initMapNameMapping();
@@ -171,6 +184,26 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 			case "tagmessages":
 				getConfig().set("tagmessages", Boolean.parseBoolean(args[1]));
 				break;
+				
+			case "hidesneakingplayers":
+				getConfig().set("hideSneakingPlayers", Boolean.parseBoolean(args[1]));
+				break;
+				
+			case "hideinvisibleplayers":
+				getConfig().set("hideInvisiblePlayers", Boolean.parseBoolean(args[1]));
+				break;
+				
+			case "sendjsononvanishedplayers":
+				getConfig().set("sendJSONOnVanishedPlayers", Boolean.parseBoolean(args[1]));
+				break;
+				
+			case "sendjsononsneakingplayers":
+				getConfig().set("sendJSONOnSneakingPlayers", Boolean.parseBoolean(args[1]));
+				break;
+				
+			case "sendjsononinvisibleplayers":
+				getConfig().set("sendJSONOnInvisiblePlayers", Boolean.parseBoolean(args[1]));
+				break;
 			default:
 				JUtility.sendMessage(sender, ChatColor.RED + this.language.
 	                    getConfig().getString("wrong_config").replace("{name}", args[0]));
@@ -214,24 +247,19 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
     }
 
 	public void onDisable() {
+		
+		this.disabled = true;
+		
 		// Disable updates
 		getServer().getScheduler().cancelTask(mUpdateTaskId);
 
-		try
-		{
-			if (mSaveOfflinePlayers) {
-				// Save the offline players map
-				saveOfflinePlayersMap();
-			}
-			
-			//Last update
-			this.run();
-			
-		}catch(Exception ex)
-		{
-			// This last update can cause errors.  
-			// Ignore and continue.
+		if (mSaveOfflinePlayers) {
+			// Save the offline players map
+			saveOfflinePlayersMap();
 		}
+
+		// Update data one last time
+		this.run();
 		
 		Logger.getLogger(mPdfFile.getName()).log(Level.INFO, mPdfFile.getName() + " disabled");
 	}
@@ -345,25 +373,64 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 			if (!p.hasPermission("playermarkers.show")) {
 				continue;
 			}
+			
+			boolean sendDataVanished = true;
+			boolean sendDataSneaking = true;
+			boolean sendDataInvisible = true;
 				
 			out = new JSONObject();
 			out.put("msg", p.getName());
-			out.put("id", 4);
+			out.put("id", Status.NORMAL);
 			out.put("world", mMapNameMapping.get(p.getLocation().getWorld().getName()));
 			out.put("x", p.getLocation().getBlockX());
 			out.put("y", p.getLocation().getBlockY());
 			out.put("z", p.getLocation().getBlockZ());
 
+			// Handles sneaking player
+			if (mHideSneakingPlayers) {
+				boolean isSneaking = p.isSneaking();
+
+				if (isSneaking) {
+					if (mSendJSONOnSneakingPlayers) {
+						out.put("id", Status.SNEAKING);
+					}
+
+					sendDataSneaking = false;
+				}
+			}
+
+			// Handles invisible potion effect on player
+			if (mHideInvisiblePlayers) {
+				boolean isInvisible = p.hasPotionEffect(PotionEffectType.INVISIBILITY);
+
+				if (isInvisible) {
+					if (mSendJSONOnInvisiblePlayers) {
+						out.put("id", Status.INVISIBLE); // will replace sneaking player ID
+					}
+
+					sendDataInvisible = false;
+				}
+			}
+
+			// Handles vanished player
 			if (mHideVanishedPlayers) {
 				List<MetadataValue> list = p.getMetadata("vanished");
 				for (MetadataValue value : list) {
 					if (value.asBoolean()) {
-						out.put("id", 5);
+						if (mSendJSONOnVanishedPlayers) {
+							out.put("id", Status.VANISHED); // will replace invisible player ID
+						}
+
+						sendDataVanished = false;
+
 						break;
 					}
 				}
 			}
-			jsonList.add(out);
+
+			if (sendDataSneaking || sendDataInvisible || sendDataVanished) {
+				jsonList.add(out);
+			}
 		}
 
 		if (mSaveOfflinePlayers) {
@@ -371,7 +438,7 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 			for (ConcurrentHashMap.Entry<String, SimpleLocation> p : mOfflineLocations.entrySet()) {
 				out = new JSONObject();
 				out.put("msg", p.getKey());
-				out.put("id", 5);
+				out.put("id", Status.VANISHED);
 				out.put("world", mMapNameMapping.get(p.getValue().worldName));
 				out.put("x", p.getValue().x);
 				out.put("y", p.getValue().y);
@@ -382,7 +449,15 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 		}
 
 		mDataWriter.setData(jsonList);
-		getServer().getScheduler().scheduleAsyncDelayedTask(this, mDataWriter);
+		
+		// if the plugin is disabled, no async task
+		if (!this.disabled)
+		{
+			getServer().getScheduler().runTaskAsynchronously(this, mDataWriter);
+		}else
+		{
+			mDataWriter.run();
+		}
 	}
 
 	private class JSONDataWriter implements Runnable {
