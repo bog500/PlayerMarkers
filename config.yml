@@ -11,8 +11,10 @@ tagmessages: true
 hideVanishedPlayers: true
 hideSneakingPlayers: false
 hideInvisiblePlayers: true
+hideSpectatorPlayers: true
 
 #Send custom ID for those status
 sendJSONOnVanishedPlayers: false
 sendJSONOnSneakingPlayers: false
 sendJSONOnInvisiblePlayers: false
+sendJSONOnSpectatorPlayers: false

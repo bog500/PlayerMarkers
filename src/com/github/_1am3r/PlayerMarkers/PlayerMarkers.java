@@ -19,6 +19,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.bukkit.ChatColor;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.Command;
@@ -56,9 +57,11 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 	private boolean mHideVanishedPlayers = true;
 	private boolean mHideSneakingPlayers = true;
 	private boolean mHideInvisiblePlayers = true;
+	private boolean mHideSpectatorPlayers = true;
 	private boolean mSendJSONOnVanishedPlayers = false;
 	private boolean mSendJSONOnSneakingPlayers = false;
 	private boolean mSendJSONOnInvisiblePlayers = false;
+	private boolean mSendJSONOnSpectatorPlayers = false;
 
 	public void onEnable() {
 		mPdfFile = this.getDescription();
@@ -66,9 +69,11 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 		mHideVanishedPlayers = getConfig().getBoolean("hideVanishedPlayers");
 		mHideSneakingPlayers = getConfig().getBoolean("hideSneakingPlayers");
 		mHideInvisiblePlayers = getConfig().getBoolean("hideInvisiblePlayers");
+		mHideSpectatorPlayers = getConfig().getBoolean("hideInvisiblePlayers");
 		mSendJSONOnVanishedPlayers = getConfig().getBoolean("sendJSONOnVanishedPlayers");
 		mSendJSONOnSneakingPlayers = getConfig().getBoolean("sendJSONOnSneakingPlayers");
 		mSendJSONOnInvisiblePlayers = getConfig().getBoolean("sendJSONOnInvisiblePlayers");
+		mSendJSONOnSpectatorPlayers = getConfig().getBoolean("sendJSONOnInvisiblePlayers");
 		
 		new JUtility(this);
 		
@@ -128,7 +133,7 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 				this.getLogger().info("New version available! " + updater.getLatestName());
 				this.getLogger().info("Download it from: " + updater.getLatestFileLink());
 			}else {
-				this.getLogger().info("ItemCollector is up to date (" + this.getDescription().getVersion() + ")");
+				this.getLogger().info("PlayerMarkers is up to date (" + this.getDescription().getVersion() + ")");
 			}
 		}catch(Exception ex) {
 			this.getLogger().warning("An error occured while checking updates.  " + ex.getMessage());
@@ -146,7 +151,7 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 	
 		if (sender instanceof Player) {
 			Player player = (Player) sender;
-			if (!player.hasPermission("justafk.setafk")) {
+			if (!player.hasPermission("playermarkers.admin")) {
 				JUtility.sendMessage(sender, ChatColor.RED + this.language.
 	                    getConfig().getString("no_permission"));
 				return true;
@@ -194,6 +199,10 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 				getConfig().set("hideInvisiblePlayers", Boolean.parseBoolean(args[1]));
 				break;
 				
+			case "hideSpectatorPlayers":
+				getConfig().set("hideSpectatorPlayers", Boolean.parseBoolean(args[1]));
+				break;
+				
 			case "sendjsononvanishedplayers":
 				getConfig().set("sendJSONOnVanishedPlayers", Boolean.parseBoolean(args[1]));
 				break;
@@ -205,6 +214,11 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 			case "sendjsononinvisibleplayers":
 				getConfig().set("sendJSONOnInvisiblePlayers", Boolean.parseBoolean(args[1]));
 				break;
+				
+			case "sendJSONOnSpectatorPlayers":
+				getConfig().set("sendJSONOnSpectatorPlayers", Boolean.parseBoolean(args[1]));
+				break;
+				
 			default:
 				JUtility.sendMessage(sender, ChatColor.RED + this.language.
 	                    getConfig().getString("wrong_config").replace("{name}", args[0]));
@@ -427,6 +441,20 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 						}
 						break;
 					}
+				}
+			}
+			
+			// Handles spectator player
+			if(mSendJSONOnSpectatorPlayers || mHideSpectatorPlayers)
+			{
+				if (p.getGameMode() == GameMode.SPECTATOR) {
+					if (mSendJSONOnSpectatorPlayers) {
+						out.put("id", Status.SPECTATOR); // will replace normal/invisible/sneaking/vanished player ID
+					}
+					if (mHideSpectatorPlayers) {
+						sendData = false;
+					}
+					break;
 				}
 			}
 
