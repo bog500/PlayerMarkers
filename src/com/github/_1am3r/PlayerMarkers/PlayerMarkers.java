@@ -477,6 +477,8 @@ public class PlayerMarkers extends JavaPlugin implements Runnable, Listener {
 				jsonList.add(out);
 			}
 		}
+		
+		jsonList.sort(new JSONPlayerComparator());
 
 		mDataWriter.setData(jsonList);
 		
